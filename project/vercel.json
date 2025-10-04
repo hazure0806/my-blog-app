@@ -44,10 +44,5 @@
         }
       ]
     }
-  ],
-  "functions": {
-    "src/api/sitemap.ts": {
-      "maxDuration": 10
-    }
-  }
+  ]
 }
