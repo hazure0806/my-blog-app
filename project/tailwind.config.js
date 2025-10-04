@@ -42,7 +42,7 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['Noto Sans JP', '游ゴシック', 'Yu Gothic', 'ヒラギノ角ゴ ProN', 'Hiragino Kaku Gothic ProN', 'メイリオ', 'Meiryo', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       spacing: {

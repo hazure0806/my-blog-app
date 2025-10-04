@@ -23,40 +23,44 @@ export function ShareButtons({ url, title }: ShareButtonsProps) {
   };
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-      <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-3">
+    <div className="bg-white dark:bg-gray-900 rounded-lg p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+      <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-4 text-lg">
         この記事をシェア
       </h4>
-      <div className="flex space-x-3">
+      <div className="flex flex-wrap gap-3">
         <a
           href={shareData.twitter}
           target="_blank"
           rel="noopener noreferrer"
-          className="p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
         >
-          <Twitter className="h-5 w-5" />
+          <Twitter className="h-4 w-4" />
+          Twitter
         </a>
         <a
           href={shareData.facebook}
           target="_blank"
           rel="noopener noreferrer"
-          className="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
         >
-          <Facebook className="h-5 w-5" />
+          <Facebook className="h-4 w-4" />
+          Facebook
         </a>
         <a
           href={shareData.linkedin}
           target="_blank"
           rel="noopener noreferrer"
-          className="p-3 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors text-sm font-medium"
         >
-          <Linkedin className="h-5 w-5" />
+          <Linkedin className="h-4 w-4" />
+          LinkedIn
         </a>
         <button
           onClick={copyToClipboard}
-          className="p-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
         >
-          <Link2 className="h-5 w-5" />
+          <Link2 className="h-4 w-4" />
+          リンクをコピー
         </button>
       </div>
     </div>

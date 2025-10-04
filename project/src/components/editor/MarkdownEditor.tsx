@@ -259,22 +259,170 @@ console.log(greeting);
     }
   };
 
-  const renderMarkdownPreview = (markdown: string) => {
-    // Simple markdown to HTML conversion for demo
-    // In production, you'd use a proper markdown parser like marked or remark
-    return markdown
-      .replace(/^# (.*$)/gm, '<h1 class="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">$1</h1>')
-      .replace(/^## (.*$)/gm, '<h2 class="text-2xl font-semibold mb-3 mt-8 text-gray-900 dark:text-gray-100">$1</h2>')
-      .replace(/^### (.*$)/gm, '<h3 class="text-xl font-medium mb-2 mt-6 text-gray-900 dark:text-gray-100">$1</h3>')
-      .replace(/^> (.*$)/gm, '<blockquote class="border-l-4 border-emerald-500 pl-4 py-2 my-4 bg-emerald-50 dark:bg-emerald-900/20 text-gray-700 dark:text-gray-300">$1</blockquote>')
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-      .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-emerald-600 dark:text-emerald-400">$1</code>')
-      .replace(/^- (.*$)/gm, '<li class="ml-4 mb-1 text-gray-700 dark:text-gray-300">• $1</li>')
-      .replace(/^\d+\. (.*$)/gm, '<li class="ml-4 mb-1 text-gray-700 dark:text-gray-300">$1</li>')
-      .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="max-w-full h-auto rounded-lg my-4 shadow-sm" />')
-      .replace(/\n\n/g, '</p><p class="mb-4 text-gray-700 dark:text-gray-300 leading-relaxed">')
-      .replace(/```(\w+)?\n([\s\S]*?)\n```/g, '<pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4"><code>$2</code></pre>');
+  // 見出しテキストからIDを生成（日本語対応）
+  const generateId = (text: string): string => {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\s-]/g, '') // 日本語文字を保持
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-') // 連続するハイフンを単一に
+      .replace(/^-|-$/g, '') // 先頭・末尾のハイフンを削除
+      .trim();
+  };
+
+  const renderMarkdownPreview = (content: string) => {
+    // より簡潔で確実なマークダウン変換
+    const lines = content.split('\n');
+    
+    return lines.map((line, index) => {
+      // 見出し1
+      if (line.startsWith('# ')) {
+        const text = line.replace('# ', '');
+        const id = generateId(text);
+        return (
+          <h1 key={index} id={id} className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-6 mb-4 first:mt-0 leading-tight">
+            {text}
+          </h1>
+        );
+      }
+      
+      // 見出し2
+      if (line.startsWith('## ')) {
+        const text = line.replace('## ', '');
+        const id = generateId(text);
+        return (
+          <h2 key={index} id={id} className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-5 mb-3 leading-tight">
+            {text}
+          </h2>
+        );
+      }
+      
+      // 見出し3
+      if (line.startsWith('### ')) {
+        const text = line.replace('### ', '');
+        const id = generateId(text);
+        return (
+          <h3 key={index} id={id} className="text-xl font-semibold text-gray-900 dark:text-gray-100 mt-4 mb-2 leading-tight">
+            {text}
+          </h3>
+        );
+      }
+      
+      // コードブロック
+      if (line.startsWith('```')) {
+        const codeBlock = [];
+        let i = index + 1;
+        while (i < lines.length && !lines[i].startsWith('```')) {
+          codeBlock.push(lines[i]);
+          i++;
+        }
+        
+        return (
+          <pre key={index} className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-3 border border-gray-200 dark:border-gray-700">
+            <code className="text-sm font-mono leading-tight">{codeBlock.join('\n')}</code>
+          </pre>
+        );
+      }
+      
+      // 引用
+      if (line.startsWith('> ')) {
+        return (
+          <blockquote key={index} className="border-l-4 border-blue-500 pl-4 py-2 my-3 bg-blue-50 dark:bg-blue-900/20 rounded-r-lg">
+            <p className="text-gray-700 dark:text-gray-300 leading-tight font-medium">
+              {line.replace('> ', '')}
+            </p>
+          </blockquote>
+        );
+      }
+      
+      // リスト項目
+      if (line.startsWith('- ')) {
+        const listText = line.replace('- ', '');
+        const processedListText = listText
+          .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+          .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-blue-600 dark:text-blue-400">$1</code>')
+          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
+        
+        return (
+          <div key={index} className="flex items-center text-gray-700 dark:text-gray-300 leading-tight my-1 text-lg">
+            <span className="text-blue-600 dark:text-blue-400 mr-3 text-lg">•</span>
+            <span className="flex-1" dangerouslySetInnerHTML={{ __html: processedListText }} />
+          </div>
+        );
+      }
+      
+      // 番号付きリスト
+      if (line.match(/^\d+\. /)) {
+        const match = line.match(/^(\d+)\. (.*)/);
+        if (match) {
+          const [, num, text] = match;
+          const processedListText = text
+            .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+            .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-blue-600 dark:text-blue-400">$1</code>')
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
+          
+          return (
+            <div key={index} className="flex items-center text-gray-700 dark:text-gray-300 leading-tight my-1 text-lg">
+              <span className="text-blue-600 dark:text-blue-400 mr-2 font-medium min-w-[1.5rem]">
+                {num}.
+              </span>
+              <span className="flex-1" dangerouslySetInnerHTML={{ __html: processedListText }} />
+            </div>
+          );
+        }
+      }
+      
+      // 画像
+      if (line.match(/^!\[.*?\]\(.*?\)$/)) {
+        const match = line.match(/^!\[(.*?)\]\((.*?)\)$/);
+        if (match) {
+          const [, altText, imageUrl] = match;
+          return (
+            <div key={index} className="my-4">
+              <img
+                src={imageUrl}
+                alt={altText || '画像'}
+                className="w-full h-auto rounded-lg shadow-lg"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  console.error('Image load error:', imageUrl);
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                }}
+              />
+              {altText && altText !== '画像' && (
+                <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-1 italic">
+                  {altText}
+                </p>
+              )}
+            </div>
+          );
+        }
+      }
+      
+      // 空行
+      if (line.trim() === '') {
+        return <br key={index} />;
+      }
+      
+      // 通常の段落
+      const processedLine = line
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+        .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-blue-600 dark:text-blue-400">$1</code>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
+      
+      return (
+        <p 
+          key={index} 
+          className="text-gray-700 dark:text-gray-300 leading-tight mb-2 text-lg"
+          dangerouslySetInnerHTML={{ __html: processedLine }}
+        />
+      );
+    });
   };
 
   // ローディング状態の表示
@@ -436,57 +584,14 @@ console.log(greeting);
               <h3 className="font-medium text-gray-900 dark:text-gray-100">プレビュー</h3>
             </div>
             <div className="flex-1 p-6 overflow-y-auto">
-              <div
-                className="prose prose-gray dark:prose-invert max-w-none"
-                dangerouslySetInnerHTML={{
-                  __html: `<p class="mb-4 text-gray-700 dark:text-gray-300 leading-relaxed">${renderMarkdownPreview(content)}</p>`
-                }}
-              />
+              <div className="prose prose-gray dark:prose-invert max-w-none">
+                {renderMarkdownPreview(content)}
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Toolbar */}
-      <div className="bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">
-        <div className="flex flex-wrap gap-2">
-          {[
-            { label: '見出し1', action: '# ' },
-            { label: '見出し2', action: '## ' },
-            { label: '太字', action: '**テキスト**' },
-            { label: '斜体', action: '*テキスト*' },
-            { label: 'コード', action: '`コード`' },
-            { label: 'リンク', action: '[テキスト](URL)' },
-            { label: '画像', action: '![alt](URL)' },
-            { label: 'リスト', action: '- ' },
-            { label: '引用', action: '> ' },
-          ].map((tool) => (
-            <Button
-              key={tool.label}
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                const textarea = document.querySelector('textarea');
-                if (textarea) {
-                  const start = textarea.selectionStart;
-                  const end = textarea.selectionEnd;
-                  const selectedText = content.substring(start, end);
-                  const replacement = tool.action.includes('テキスト') 
-                    ? tool.action.replace('テキスト', selectedText || 'テキスト')
-                    : tool.action;
-                  
-                  setContent(
-                    content.substring(0, start) + replacement + content.substring(end)
-                  );
-                }
-              }}
-              className="text-xs"
-            >
-              {tool.label}
-            </Button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

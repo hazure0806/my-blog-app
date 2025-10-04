@@ -107,132 +107,171 @@ export function ArticlePage({ articleId, onBack, isAdmin = false }: ArticlePageP
       </div>
     );
   }
+  // 見出しテキストからIDを生成（日本語対応）
+  const generateId = (text: string): string => {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf\s-]/g, '') // 日本語文字を保持
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-') // 連続するハイフンを単一に
+      .replace(/^-|-$/g, '') // 先頭・末尾のハイフンを削除
+      .trim();
+  };
+
   const renderContent = (content: string) => {
-    const paragraphs = content.split('\n\n');
-    const totalParagraphs = paragraphs.length;
+    // より簡潔で確実なマークダウン変換
+    const lines = content.split('\n');
+    const totalLines = lines.length;
     
-    return paragraphs.map((paragraph, index) => {
-        if (paragraph.startsWith('##')) {
-          return (
-            <h2 key={index} className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-12 mb-6 first:mt-0">
-              {paragraph.replace('## ', '')}
-            </h2>
-          );
-        }
-        
-        if (paragraph.startsWith('###')) {
-          return (
-            <h3 key={index} className="text-xl font-semibold text-gray-900 dark:text-gray-100 mt-8 mb-4">
-              {paragraph.replace('### ', '')}
-            </h3>
-          );
-        }
-        
-        if (paragraph.startsWith('```')) {
-          const codeBlock = paragraph.slice(3, -3);
-          const [lang, ...codeLines] = codeBlock.split('\n');
-          const code = codeLines.join('\n');
-          return (
-            <pre key={index} className="bg-gray-900 text-gray-100 p-6 rounded-xl overflow-x-auto my-8 border border-gray-200 dark:border-gray-700">
-              <code className="text-sm font-mono leading-relaxed">{code}</code>
-            </pre>
-          );
-        }
-        
-        if (paragraph.startsWith('>')) {
-          return (
-            <blockquote key={index} className="border-l-4 border-orange-500 pl-6 py-4 my-8 bg-orange-50 dark:bg-orange-900/20 rounded-r-lg">
-              <p className="text-gray-700 dark:text-gray-300 leading-relaxed font-medium">
-                {paragraph.replace('> ', '')}
-              </p>
-            </blockquote>
-          );
-        }
-        
-        if (paragraph.startsWith('-')) {
-          const listItems = paragraph.split('\n').filter(item => item.startsWith('-'));
-          return (
-            <ul key={index} className="space-y-2 my-6">
-              {listItems.map((item, itemIndex) => (
-                <li key={itemIndex} className="flex items-start text-gray-700 dark:text-gray-300 leading-relaxed">
-                  <span className="text-emerald-600 dark:text-emerald-400 mr-3 mt-1">•</span>
-                  {item.replace('- ', '')}
-                </li>
-              ))}
-            </ul>
-          );
-        }
-        
-        if (paragraph.match(/^\d+\./)) {
-          const listItems = paragraph.split('\n').filter(item => item.match(/^\d+\./));
-          return (
-            <ol key={index} className="space-y-2 my-6">
-              {listItems.map((item, itemIndex) => (
-                <li key={itemIndex} className="flex items-start text-gray-700 dark:text-gray-300 leading-relaxed">
-                  <span className="text-orange-600 dark:text-orange-400 mr-3 mt-1 font-medium">
-                    {itemIndex + 1}.
-                  </span>
-                  {item.replace(/^\d+\. /, '')}
-                </li>
-              ))}
-            </ol>
-          );
-        }
-        
-        // 画像のMarkdown記法をチェック
-        if (paragraph.match(/^!\[.*?\]\(.*?\)$/)) {
-          const imageMatch = paragraph.match(/^!\[(.*?)\]\((.*?)\)$/);
-          if (imageMatch) {
-            const [, altText, imageUrl] = imageMatch;
-            return (
-              <div key={index} className="my-8">
-                <img
-                  src={imageUrl}
-                  alt={altText || '画像'}
-                  className="w-full h-auto rounded-lg shadow-lg max-w-full"
-                  loading="lazy"
-                  decoding="async"
-                  onError={(e) => {
-                    console.error('Image load error:', imageUrl);
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                  }}
-                />
-                {altText && altText !== '画像' && (
-                  <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2 italic">
-                    {altText}
-                  </p>
-                )}
-              </div>
-            );
-          }
-        }
-
-        const paragraphElement = (
-          <p key={index} className="text-gray-700 dark:text-gray-300 leading-relaxed mb-6 text-lg">
-            {paragraph.split('`').map((part, partIndex) => 
-              partIndex % 2 === 0 ? (
-                <span key={partIndex}>{part}</span>
-              ) : (
-                <code key={partIndex} className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-base font-mono text-blue-600 dark:text-blue-400">
-                  {part}
-                </code>
-              )
-            )}
-          </p>
-        );
-
-        // 記事内広告の表示判定
-        const showInArticleAd = shouldShowInArticleAd(index, totalParagraphs) && 
-                               shouldDisplayAd('article', isAdmin);
-
+    return lines.map((line, index) => {
+      // 見出し1
+      if (line.startsWith('# ')) {
+        const text = line.replace('# ', '');
+        const id = generateId(text);
         return (
-          <React.Fragment key={index}>
-            {paragraphElement}
-            {showInArticleAd && <InArticleAd />}
-          </React.Fragment>
+          <h1 key={index} id={id} className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-6 mb-4 first:mt-0 leading-tight">
+            {text}
+          </h1>
         );
-      });
+      }
+      
+      // 見出し2
+      if (line.startsWith('## ')) {
+        const text = line.replace('## ', '');
+        const id = generateId(text);
+        return (
+          <h2 key={index} id={id} className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-5 mb-3 leading-tight">
+            {text}
+          </h2>
+        );
+      }
+      
+      // 見出し3
+      if (line.startsWith('### ')) {
+        const text = line.replace('### ', '');
+        const id = generateId(text);
+        return (
+          <h3 key={index} id={id} className="text-xl font-semibold text-gray-900 dark:text-gray-100 mt-4 mb-2 leading-tight">
+            {text}
+          </h3>
+        );
+      }
+      
+      // コードブロック
+      if (line.startsWith('```')) {
+        const codeBlock = [];
+        let i = index + 1;
+        while (i < lines.length && !lines[i].startsWith('```')) {
+          codeBlock.push(lines[i]);
+          i++;
+        }
+        
+        return (
+          <pre key={index} className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-3 border border-gray-200 dark:border-gray-700">
+            <code className="text-sm font-mono leading-tight">{codeBlock.join('\n')}</code>
+          </pre>
+        );
+      }
+      
+      // 引用
+      if (line.startsWith('> ')) {
+        return (
+          <blockquote key={index} className="border-l-4 border-blue-500 pl-4 py-2 my-3 bg-blue-50 dark:bg-blue-900/20 rounded-r-lg">
+            <p className="text-gray-700 dark:text-gray-300 leading-tight font-medium">
+              {line.replace('> ', '')}
+            </p>
+          </blockquote>
+        );
+      }
+      
+      // リスト項目
+      if (line.startsWith('- ')) {
+        const listText = line.replace('- ', '');
+        const processedListText = listText
+          .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+          .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-blue-600 dark:text-blue-400">$1</code>')
+          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
+        
+        return (
+          <div key={index} className="flex items-center text-gray-700 dark:text-gray-300 leading-tight my-1 text-lg">
+            <span className="text-blue-600 dark:text-blue-400 mr-3 text-lg">•</span>
+            <span className="flex-1" dangerouslySetInnerHTML={{ __html: processedListText }} />
+          </div>
+        );
+      }
+      
+      // 番号付きリスト
+      if (line.match(/^\d+\. /)) {
+        const match = line.match(/^(\d+)\. (.*)/);
+        if (match) {
+          const [, num, text] = match;
+          const processedListText = text
+            .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+            .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-blue-600 dark:text-blue-400">$1</code>')
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
+          
+          return (
+            <div key={index} className="flex items-center text-gray-700 dark:text-gray-300 leading-tight my-1 text-lg">
+              <span className="text-blue-600 dark:text-blue-400 mr-2 font-medium min-w-[1.5rem]">
+                {num}.
+              </span>
+              <span className="flex-1" dangerouslySetInnerHTML={{ __html: processedListText }} />
+            </div>
+          );
+        }
+      }
+      
+      // 画像
+      if (line.match(/^!\[.*?\]\(.*?\)$/)) {
+        const match = line.match(/^!\[(.*?)\]\((.*?)\)$/);
+        if (match) {
+          const [, altText, imageUrl] = match;
+          return (
+            <div key={index} className="my-4">
+              <img
+                src={imageUrl}
+                alt={altText || '画像'}
+                className="w-full h-auto rounded-lg shadow-lg"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  console.error('Image load error:', imageUrl);
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                }}
+              />
+              {altText && altText !== '画像' && (
+                <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-1 italic">
+                  {altText}
+                </p>
+              )}
+            </div>
+          );
+        }
+      }
+      
+      // 空行
+      if (line.trim() === '') {
+        return <br key={index} />;
+      }
+      
+      // 通常の段落
+      const processedLine = line
+        .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+        .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-blue-600 dark:text-blue-400">$1</code>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
+      
+      return (
+        <p 
+          key={index} 
+          className="text-gray-700 dark:text-gray-300 leading-tight mb-2 text-lg"
+          dangerouslySetInnerHTML={{ __html: processedLine }}
+        />
+      );
+    });
   };
 
   // 日付のフォーマット
@@ -276,13 +315,8 @@ export function ArticlePage({ articleId, onBack, isAdmin = false }: ArticlePageP
 
       <div className="mx-auto max-w-6xl px-4 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
-          {/* Table of Contents - Hidden on mobile */}
-          <div className="hidden lg:block">
-            <TableOfContents />
-          </div>
-
           {/* Main Content */}
-          <article className="lg:col-span-2">
+          <div className="lg:col-span-3">
             {/* Article Header */}
             <header className="mb-12">
               <div className="mb-6">
@@ -307,7 +341,7 @@ export function ArticlePage({ articleId, onBack, isAdmin = false }: ArticlePageP
               </div>
               
               {article.tags && article.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 mb-6">
                   {article.tags.map((tag) => (
                     <span
                       key={tag}
@@ -319,31 +353,31 @@ export function ArticlePage({ articleId, onBack, isAdmin = false }: ArticlePageP
                   ))}
                 </div>
               )}
+              
+              {/* シェアボタンを記事ヘッダーに配置 */}
+              <div className="mb-8">
+                <ShareButtons url={window.location.href} title={article.title} />
+              </div>
             </header>
 
             {/* Article Content */}
-            <div className="prose prose-lg prose-gray dark:prose-invert max-w-none">
-              {renderContent(article.content)}
-            </div>
-
-            {/* Author Bio */}
-            {author && (
-              <div className="mt-16 pt-12 border-t border-gray-200 dark:border-gray-700">
-                <AuthorBio {...author} />
+            <article className="max-w-none">
+              <div className="prose prose-lg prose-gray dark:prose-invert max-w-none">
+                {renderContent(article.content)}
               </div>
-            )}
-          </article>
 
-          {/* Sidebar */}
-          <aside className="space-y-8">
-            <ShareButtons url={window.location.href} title={article.title} />
-            
-            {/* サイドバー広告 */}
-            {shouldDisplayAd('article', isAdmin) && (
-              <div className="sticky top-24">
-                <SidebarAd />
-              </div>
-            )}
+              {/* Author Bio */}
+              {author && (
+                <div className="mt-16 pt-12 border-t border-gray-200 dark:border-gray-700">
+                  <AuthorBio {...author} />
+                </div>
+              )}
+            </article>
+          </div>
+
+          {/* Sidebar with TOC */}
+          <aside className="lg:col-span-1">
+            <TableOfContents content={article.content} />
           </aside>
         </div>
 
