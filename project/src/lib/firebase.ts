@@ -14,15 +14,10 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID || "your-app-id"
 };
 
-// デバッグ用：設定値をコンソールに出力
-console.log('Firebase Config:', {
-  apiKey: firebaseConfig.apiKey.substring(0, 10) + '...',
-  authDomain: firebaseConfig.authDomain,
-  projectId: firebaseConfig.projectId,
-  storageBucket: firebaseConfig.storageBucket,
-  messagingSenderId: firebaseConfig.messagingSenderId,
-  appId: firebaseConfig.appId.substring(0, 10) + '...'
-});
+// 本番環境では設定値のログ出力を無効化
+if (import.meta.env.DEV) {
+  console.log('Firebase Config loaded for development');
+}
 
 // Firebaseアプリを初期化
 const app = initializeApp(firebaseConfig);
