@@ -1,83 +1,30 @@
-import React from 'react';
+import { useEffect } from 'react';
 import { ArticleCard } from './ArticleCard';
 import { AuthorBio } from './AuthorBio';
+import { Button } from '../ui/button';
+import { ArrowRight } from 'lucide-react';
 import { useArticles } from '../../hooks/useArticles';
+import { AUTHOR_INFO } from '../../constants/author';
+import { updateSEO, generateHomeSEO, generateStructuredData, insertStructuredData } from '../../utils/seo';
 
-const featuredArticle = {
-  title: '毎日のコーヒータイムを特別にする5つの方法',
-  excerpt: '忙しい日常の中で、コーヒータイムは私にとって大切なひととき。豆の選び方から淹れ方まで、毎日のコーヒーをもっと楽しむためのちょっとしたコツをシェアします。',
-  image: 'https://images.pexels.com/photos/302899/pexels-photo-302899.jpeg?auto=compress&cs=tinysrgb&w=800',
-  date: '2025年1月20日',
-  readTime: '8分',
-  category: 'コーヒー',
-  featured: true,
-};
 
-const articles = [
-  {
-    title: '栄養バランスを考えた一週間の食事プラン',
-    excerpt: '忙しい毎日でも健康的な食事を続けるために、栄養士の友人に教わった簡単で美味しい食事プランをご紹介します。',
-    image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月18日',
-    readTime: '10分',
-    category: '栄養・健康',
-  },
-  {
-    title: 'React 19の新機能：Server Componentsとその活用方法',
-    excerpt: '最新のReact 19で導入されたServer Componentsについて、実際の開発現場での活用方法を交えて解説します。',
-    image: 'https://images.pexels.com/photos/11035380/pexels-photo-11035380.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月15日',
-    readTime: '15分',
-    category: 'テクノロジー',
-  },
-  {
-    title: '週末の小さな冒険：近所のカフェ巡り記録',
-    excerpt: '最近始めた週末のカフェ巡り。今回は地元で見つけた素敵なカフェ3軒をご紹介。それぞれの特色や雰囲気をレポートします。',
-    image: 'https://images.pexels.com/photos/1307698/pexels-photo-1307698.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月12日',
-    readTime: '8分',
-    category: '雑記',
-  },
-  {
-    title: '在宅ワークの生産性を上げる環境づくり',
-    excerpt: 'リモートワークが続く中で試行錯誤してきた、集中できる作業環境の作り方や時間管理のコツをまとめました。',
-    image: 'https://images.pexels.com/photos/4050315/pexels-photo-4050315.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月10日',
-    readTime: '12分',
-    category: 'ライフスタイル',
-  },
-  {
-    title: 'TypeScriptの型システムを活用した保守性の高いコード設計',
-    excerpt: 'TypeScriptの高度な型機能を使って、より安全で保守性の高いアプリケーションを構築する方法について説明します。',
-    image: 'https://images.pexels.com/photos/4164418/pexels-photo-4164418.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月8日',
-    readTime: '14分',
-    category: 'テクノロジー',
-  },
-  {
-    title: '季節の変わり目に意識したい栄養素とレシピ',
-    excerpt: '季節の変わり目は体調を崩しやすい時期。免疫力を高める栄養素と、簡単に作れる美味しいレシピをご紹介します。',
-    image: 'https://images.pexels.com/photos/1640774/pexels-photo-1640774.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月5日',
-    readTime: '12分',
-    category: '栄養・健康',
-  },
-];
+interface HomePageProps {
+  onNavigateToArticle: (articleId: string) => void;
+  onNavigateToArticlesList: () => void;
+  onNavigateToAbout?: () => void;
+}
 
-const authorInfo = {
-  name: '田中太郎',
-  bio: 'フルスタック開発者として働きながら、日々の生活で発見した小さな喜びや学びを記録しています。テクノロジー、コーヒー、栄養、ライフスタイルなど、興味のあることを自由に書いています。',
-  avatar: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=200',
-  social: {
-    twitter: 'https://twitter.com',
-    github: 'https://github.com',
-    linkedin: 'https://linkedin.com',
-    email: 'contact@example.com',
-  },
-};
-
-export function HomePage() {
+export function HomePage({ onNavigateToArticle, onNavigateToArticlesList, onNavigateToAbout }: HomePageProps) {
   const { articles, loading, error } = useArticles();
+
+  // SEOメタタグを更新
+  useEffect(() => {
+    updateSEO(generateHomeSEO());
+    
+    // 構造化データを挿入
+    const structuredData = generateStructuredData('website');
+    insertStructuredData(structuredData);
+  }, []);
 
   if (loading) {
     return (
@@ -107,7 +54,14 @@ export function HomePage() {
   // 公開済み記事のみをフィルタリング
   const publishedArticles = articles.filter(article => article.status === 'published');
   const featuredArticle = publishedArticles.find(article => article.featured) || publishedArticles[0];
-  const otherArticles = publishedArticles.filter(article => article.id !== featuredArticle?.id);
+  
+  // フィーチャー記事以外の記事を取得（最大6件）
+  const otherArticles = publishedArticles
+    .filter(article => article.id !== featuredArticle?.id)
+    .slice(0, 6);
+  
+  // 記事一覧ページに表示する記事が7件を超えているかチェック
+  const hasMoreArticles = publishedArticles.length > 7;
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -123,19 +77,35 @@ export function HomePage() {
                 日々の発見や学び、興味のあることを自由に綴っています
               </p>
             </div>
-            <ArticleCard {...featuredArticle} />
+            <div onClick={() => onNavigateToArticle(featuredArticle.id)}>
+              <ArticleCard {...featuredArticle} />
+            </div>
           </section>
         )}
 
         {/* Recent Articles Grid */}
         <section className="mb-16">
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">
-            記事一覧
-          </h2>
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100">
+              記事一覧
+            </h2>
+            {hasMoreArticles && (
+              <Button 
+                variant="outline" 
+                onClick={onNavigateToArticlesList}
+                className="gap-2"
+              >
+                もっと記事を見る
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
           {otherArticles.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {otherArticles.map((article) => (
-                <ArticleCard key={article.id} {...article} />
+                <div key={article.id} onClick={() => onNavigateToArticle(article.id)}>
+                  <ArticleCard {...article} />
+                </div>
               ))}
             </div>
           ) : (
@@ -150,7 +120,7 @@ export function HomePage() {
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">
             著者について
           </h2>
-          <AuthorBio {...authorInfo} />
+          <AuthorBio {...AUTHOR_INFO} onNavigateToAbout={onNavigateToAbout} />
         </section>
       </div>
     </main>

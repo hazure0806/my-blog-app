@@ -1,136 +1,107 @@
-import React, { useState } from 'react';
-import { Search, Filter, Calendar, Clock, Tag, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Search, Filter, Calendar, Clock, Tag, ArrowLeft, Loader2 } from 'lucide-react';
 import { ArticleCard } from './ArticleCard';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { useArticles } from '../../hooks/useArticles';
+import { updateSEO, generateArticlesListSEO, generateStructuredData, insertStructuredData } from '../../utils/seo';
+import { ArticleListAd } from '../ads/AdSense';
+import { shouldDisplayAd } from '../../utils/adConfig';
 
 interface ArticlesListPageProps {
   onBack: () => void;
+  onNavigateToArticle: (articleId: string) => void;
+  isAdmin?: boolean;
 }
 
-const allArticles = [
-  {
-    title: '毎日のコーヒータイムを特別にする5つの方法',
-    excerpt: '忙しい日常の中で、コーヒータイムは私にとって大切なひととき。豆の選び方から淹れ方まで、毎日のコーヒーをもっと楽しむためのちょっとしたコツをシェアします。',
-    image: 'https://images.pexels.com/photos/302899/pexels-photo-302899.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月20日',
-    readTime: '8分',
-    category: 'コーヒー',
-  },
-  {
-    title: '栄養バランスを考えた一週間の食事プラン',
-    excerpt: '忙しい毎日でも健康的な食事を続けるために、栄養士の友人に教わった簡単で美味しい食事プランをご紹介します。',
-    image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月18日',
-    readTime: '10分',
-    category: '栄養・健康',
-  },
-  {
-    title: 'React 19の新機能：Server Componentsとその活用方法',
-    excerpt: '最新のReact 19で導入されたServer Componentsについて、実際の開発現場での活用方法を交えて解説します。',
-    image: 'https://images.pexels.com/photos/11035380/pexels-photo-11035380.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月15日',
-    readTime: '15分',
-    category: 'テクノロジー',
-  },
-  {
-    title: '週末の小さな冒険：近所のカフェ巡り記録',
-    excerpt: '最近始めた週末のカフェ巡り。今回は地元で見つけた素敵なカフェ3軒をご紹介。それぞれの特色や雰囲気をレポートします。',
-    image: 'https://images.pexels.com/photos/1307698/pexels-photo-1307698.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月12日',
-    readTime: '8分',
-    category: '雑記',
-  },
-  {
-    title: '在宅ワークの生産性を上げる環境づくり',
-    excerpt: 'リモートワークが続く中で試行錯誤してきた、集中できる作業環境の作り方や時間管理のコツをまとめました。',
-    image: 'https://images.pexels.com/photos/4050315/pexels-photo-4050315.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月10日',
-    readTime: '12分',
-    category: 'ライフスタイル',
-  },
-  {
-    title: 'TypeScriptの型システムを活用した保守性の高いコード設計',
-    excerpt: 'TypeScriptの高度な型機能を使って、より安全で保守性の高いアプリケーションを構築する方法について説明します。',
-    image: 'https://images.pexels.com/photos/4164418/pexels-photo-4164418.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月8日',
-    readTime: '14分',
-    category: 'テクノロジー',
-  },
-  {
-    title: '季節の変わり目に意識したい栄養素とレシピ',
-    excerpt: '季節の変わり目は体調を崩しやすい時期。免疫力を高める栄養素と、簡単に作れる美味しいレシピをご紹介します。',
-    image: 'https://images.pexels.com/photos/1640774/pexels-photo-1640774.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月5日',
-    readTime: '12分',
-    category: '栄養・健康',
-  },
-  {
-    title: '朝のルーティンを見直して1日を充実させる方法',
-    excerpt: '朝の過ごし方を変えるだけで、1日全体の質が向上します。実際に試して効果があった朝のルーティンをご紹介。',
-    image: 'https://images.pexels.com/photos/6975474/pexels-photo-6975474.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月3日',
-    readTime: '9分',
-    category: 'ライフスタイル',
-  },
-  {
-    title: 'Next.js App Routerによるモダンなフルスタック開発',
-    excerpt: 'Next.js 13で導入されたApp Routerを使った最新の開発手法と、パフォーマンス最適化のベストプラクティス。',
-    image: 'https://images.pexels.com/photos/546819/pexels-photo-546819.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2024年12月28日',
-    readTime: '18分',
-    category: 'テクノロジー',
-  },
-  {
-    title: '冬の温かいドリンクレシピ集',
-    excerpt: '寒い季節にぴったりの温かいドリンクレシピをまとめました。コーヒーベースからハーブティーまで、心も体も温まる一杯を。',
-    image: 'https://images.pexels.com/photos/1251175/pexels-photo-1251175.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2024年12月25日',
-    readTime: '11分',
-    category: 'コーヒー',
-  },
-  {
-    title: '年末年始の食べ過ぎをリセットする栄養戦略',
-    excerpt: '年末年始の食べ過ぎで体が重い...そんな時に役立つ、体をリセットする栄養戦略と簡単レシピをご紹介します。',
-    image: 'https://images.pexels.com/photos/1640772/pexels-photo-1640772.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2024年12月22日',
-    readTime: '13分',
-    category: '栄養・健康',
-  },
-  {
-    title: '2024年を振り返って：今年学んだこと',
-    excerpt: '2024年も残りわずか。今年1年間で学んだこと、挑戦したこと、来年に向けての目標について振り返ってみました。',
-    image: 'https://images.pexels.com/photos/1181677/pexels-photo-1181677.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2024年12月20日',
-    readTime: '7分',
-    category: '雑記',
-  },
-];
 
-const categories = ['すべて', 'テクノロジー', 'ライフスタイル', 'コーヒー', '栄養・健康', '雑記'];
-
-export function ArticlesListPage({ onBack }: ArticlesListPageProps) {
+export function ArticlesListPage({ onBack, onNavigateToArticle, isAdmin = false }: ArticlesListPageProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('すべて');
   const [sortBy, setSortBy] = useState('newest');
+  const [displayCount, setDisplayCount] = useState(12); // 初期表示件数
+  const [loadingMore, setLoadingMore] = useState(false);
+  const { articles, loading, error } = useArticles();
 
-  const filteredArticles = allArticles
-    .filter(article => {
-      const matchesSearch = article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           article.excerpt.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = selectedCategory === 'すべて' || article.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'newest') {
-        return new Date(b.date).getTime() - new Date(a.date).getTime();
-      } else if (sortBy === 'oldest') {
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
-      } else if (sortBy === 'readTime') {
-        return parseInt(a.readTime) - parseInt(b.readTime);
-      }
-      return 0;
-    });
+  // SEOメタタグを更新
+  useEffect(() => {
+    updateSEO(generateArticlesListSEO());
+    
+    // 構造化データを挿入
+    const structuredData = generateStructuredData('blog');
+    insertStructuredData(structuredData);
+  }, []);
+
+  // 公開済み記事のみをフィルタリング
+  const publishedArticles = articles.filter(article => article.status === 'published');
+
+  // カテゴリの一覧を取得
+  const categories = ['すべて', ...Array.from(new Set(publishedArticles.map(article => article.category).filter(Boolean)))];
+
+  // フィルタリングとソート処理をメモ化
+  const filteredArticles = useMemo(() => {
+    return publishedArticles
+      .filter(article => {
+        const matchesSearch = article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                             (article.excerpt && article.excerpt.toLowerCase().includes(searchTerm.toLowerCase()));
+        const matchesCategory = selectedCategory === 'すべて' || article.category === selectedCategory;
+        return matchesSearch && matchesCategory;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'newest') {
+          return (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0);
+        } else if (sortBy === 'oldest') {
+          return (a.publishedAt?.getTime() || 0) - (b.publishedAt?.getTime() || 0);
+        } else if (sortBy === 'readTime') {
+          return (a.readTime || 0) - (b.readTime || 0);
+        }
+        return 0;
+      });
+  }, [publishedArticles, searchTerm, selectedCategory, sortBy]);
+
+  // 表示する記事（ページネーション適用）
+  const displayedArticles = filteredArticles.slice(0, displayCount);
+  const hasMoreArticles = filteredArticles.length > displayCount;
+
+  // 検索・フィルタ変更時に表示件数をリセット
+  useEffect(() => {
+    setDisplayCount(12);
+  }, [searchTerm, selectedCategory, sortBy]);
+
+  // さらに記事を読み込む関数
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    // 実際のアプリではここでAPIから追加データを取得
+    // 今回は既存データから追加表示するため、少し遅延を追加してUXを向上
+    await new Promise(resolve => setTimeout(resolve, 500));
+    setDisplayCount(prev => prev + 12);
+    setLoadingMore(false);
+  };
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <div className="mx-auto max-w-6xl px-4 py-8">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-300">記事を読み込み中...</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <div className="mx-auto max-w-6xl px-4 py-8">
+          <div className="text-center">
+            <p className="text-red-600 dark:text-red-400">{error}</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -151,6 +122,11 @@ export function ArticlesListPage({ onBack }: ArticlesListPageProps) {
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-300">
             {filteredArticles.length}件の記事が見つかりました
+            {displayedArticles.length < filteredArticles.length && (
+              <span className="ml-2 text-sm">
+                （{displayedArticles.length}件を表示中）
+              </span>
+            )}
           </p>
         </div>
 
@@ -199,10 +175,23 @@ export function ArticlesListPage({ onBack }: ArticlesListPageProps) {
         </div>
 
         {/* Articles Grid */}
-        {filteredArticles.length > 0 ? (
+        {displayedArticles.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredArticles.map((article, index) => (
-              <ArticleCard key={index} {...article} />
+            {displayedArticles.map((article, index) => (
+              <React.Fragment key={article.id}>
+                <div onClick={() => onNavigateToArticle(article.id)}>
+                  <ArticleCard {...article} />
+                </div>
+                
+                {/* 記事一覧広告（6記事ごとに表示） */}
+                {shouldDisplayAd('articleList', isAdmin) && 
+                 (index + 1) % 6 === 0 && 
+                 index < displayedArticles.length - 1 && (
+                  <div className="md:col-span-2 lg:col-span-3">
+                    <ArticleListAd />
+                  </div>
+                )}
+              </React.Fragment>
             ))}
           </div>
         ) : (
@@ -228,11 +217,28 @@ export function ArticlesListPage({ onBack }: ArticlesListPageProps) {
           </div>
         )}
 
-        {/* Load More Button (for future pagination) */}
-        {filteredArticles.length > 0 && (
+        {/* Load More Button */}
+        {hasMoreArticles && (
           <div className="text-center mt-12">
-            <Button variant="outline" className="px-8">
-              さらに記事を読み込む
+            <Button 
+              variant="outline" 
+              className="px-8 gap-2"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  読み込み中...
+                </>
+              ) : (
+                <>
+                  さらに記事を読み込む
+                  <span className="ml-1 text-sm opacity-75">
+                    （あと{filteredArticles.length - displayCount}件）
+                  </span>
+                </>
+              )}
             </Button>
           </div>
         )}

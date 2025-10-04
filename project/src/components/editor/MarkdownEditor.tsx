@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
-import { Eye, EyeOff, Save, Upload, Send } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Eye, EyeOff, Save, Upload, Send, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
+import { ImageUpload, ThumbnailPreview } from '../ui/image-upload';
 import { useArticles } from '../../hooks/useArticles';
+import { useImageUpload } from '../../hooks/useImageUpload';
 import type { Article } from '../../types/firebase';
 
 interface MarkdownEditorProps {
   onBackToDashboard?: () => void;
+  editingArticleId?: string; // 編集モード用の記事ID
 }
 
-export function MarkdownEditor({ onBackToDashboard }: MarkdownEditorProps) {
+export function MarkdownEditor({ onBackToDashboard, editingArticleId }: MarkdownEditorProps) {
   const [showPreview, setShowPreview] = useState(true);
   const [title, setTitle] = useState('新しい記事のタイトル');
   const [content, setContent] = useState(`# はじめに
@@ -53,8 +56,45 @@ console.log(greeting);
   const [status, setStatus] = useState<'draft' | 'published'>('draft');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string>('');
+  const [showThumbnailUpload, setShowThumbnailUpload] = useState(false);
+  const [loading, setLoading] = useState(false);
   
-  const { addArticle } = useArticles();
+  const { addArticle, editArticle, fetchArticle } = useArticles();
+  const { uploadImageToStorage, uploading: imageUploading, error: imageError } = useImageUpload();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 編集モード用のデータ読み込み
+  useEffect(() => {
+    const loadArticleForEdit = async () => {
+      if (!editingArticleId) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        const article = await fetchArticle(editingArticleId);
+        
+        if (article) {
+          setTitle(article.title);
+          setContent(article.content);
+          setCategory(article.category);
+          setStatus(article.status);
+          if (article.imageUrl) {
+            setThumbnailUrl(article.imageUrl);
+          }
+        } else {
+          setError('記事が見つかりません');
+        }
+      } catch (err) {
+        console.error('Error loading article for edit:', err);
+        setError('記事の読み込みに失敗しました');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadArticleForEdit();
+  }, [editingArticleId, fetchArticle]);
 
   // 記事の概要を生成（マークダウンの最初の段落から）
   const generateExcerpt = (markdown: string) => {
@@ -85,6 +125,56 @@ console.log(greeting);
       .trim();
   };
 
+  // 本文画像のアップロード処理
+  const handleContentImageUpload = async (file: File) => {
+    try {
+      const fileName = generateImagePath(file.name);
+      const downloadURL = await uploadImageToStorage(file, `content/${fileName}`);
+      
+      // 現在のカーソル位置にMarkdown記法を挿入
+      if (textareaRef.current) {
+        const textarea = textareaRef.current;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const imageMarkdown = `![画像](${downloadURL})\n`;
+        
+        const newContent = 
+          content.substring(0, start) + 
+          imageMarkdown + 
+          content.substring(end);
+        
+        setContent(newContent);
+        
+        // カーソル位置を画像記法の後に移動
+        setTimeout(() => {
+          textarea.focus();
+          textarea.setSelectionRange(start + imageMarkdown.length, start + imageMarkdown.length);
+        }, 0);
+      }
+    } catch (err) {
+      console.error('Content image upload error:', err);
+      setError('画像のアップロードに失敗しました');
+    }
+  };
+
+  // サムネイル画像のアップロード処理
+  const handleThumbnailUpload = async (file: File) => {
+    try {
+      const fileName = generateImagePath(file.name);
+      const downloadURL = await uploadImageToStorage(file, `thumbnail/${fileName}`);
+      setThumbnailUrl(downloadURL);
+      setShowThumbnailUpload(false);
+    } catch (err) {
+      console.error('Thumbnail upload error:', err);
+      setError('サムネイル画像のアップロードに失敗しました');
+    }
+  };
+
+  // サムネイル画像の削除
+  const handleThumbnailRemove = () => {
+    setThumbnailUrl('');
+  };
+
   const handleSaveDraft = async () => {
     if (!title.trim() || !content.trim()) {
       setError('タイトルと内容を入力してください');
@@ -95,21 +185,29 @@ console.log(greeting);
       setSaving(true);
       setError(null);
 
-      const articleData: Omit<Article, 'id' | 'publishedAt' | 'updatedAt' | 'views'> = {
+      const articleData = {
         title: title.trim(),
         content: content.trim(),
         excerpt: generateExcerpt(content),
         author: '14nn023@gmail.com',
-        status: 'draft',
+        status: 'draft' as const,
         category: category,
         tags: [],
         readTime: calculateReadTime(content),
         featured: false,
-        slug: generateSlug(title)
+        slug: generateSlug(title),
+        ...(thumbnailUrl && { imageUrl: thumbnailUrl })
       };
 
-      await addArticle(articleData);
-      alert('下書きを保存しました');
+      if (editingArticleId) {
+        // 編集モード
+        await editArticle(editingArticleId, articleData);
+        alert('下書きを更新しました');
+      } else {
+        // 新規作成モード
+        await addArticle(articleData);
+        alert('下書きを保存しました');
+      }
     } catch (err) {
       setError('保存に失敗しました');
       console.error('Save error:', err);
@@ -128,21 +226,30 @@ console.log(greeting);
       setSaving(true);
       setError(null);
 
-      const articleData: Omit<Article, 'id' | 'publishedAt' | 'updatedAt' | 'views'> = {
+      const articleData = {
         title: title.trim(),
         content: content.trim(),
         excerpt: generateExcerpt(content),
         author: '14nn023@gmail.com',
-        status: 'published',
+        status: 'published' as const,
         category: category,
         tags: [],
         readTime: calculateReadTime(content),
         featured: false,
-        slug: generateSlug(title)
+        slug: generateSlug(title),
+        ...(thumbnailUrl && { imageUrl: thumbnailUrl })
       };
 
-      await addArticle(articleData);
-      alert('記事を公開しました');
+      if (editingArticleId) {
+        // 編集モード
+        await editArticle(editingArticleId, articleData);
+        alert('記事を更新しました');
+      } else {
+        // 新規作成モード
+        await addArticle(articleData);
+        alert('記事を公開しました');
+      }
+      
       if (onBackToDashboard) {
         onBackToDashboard();
       }
@@ -167,9 +274,22 @@ console.log(greeting);
       .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-emerald-600 dark:text-emerald-400">$1</code>')
       .replace(/^- (.*$)/gm, '<li class="ml-4 mb-1 text-gray-700 dark:text-gray-300">• $1</li>')
       .replace(/^\d+\. (.*$)/gm, '<li class="ml-4 mb-1 text-gray-700 dark:text-gray-300">$1</li>')
+      .replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="max-w-full h-auto rounded-lg my-4 shadow-sm" />')
       .replace(/\n\n/g, '</p><p class="mb-4 text-gray-700 dark:text-gray-300 leading-relaxed">')
       .replace(/```(\w+)?\n([\s\S]*?)\n```/g, '<pre class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4"><code>$2</code></pre>');
   };
+
+  // ローディング状態の表示
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">記事を読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
@@ -224,25 +344,63 @@ console.log(greeting);
             <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
           </div>
         )}
-        <div className="flex gap-4 items-center">
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="text-xl font-bold border-none p-0 h-auto focus:ring-0 bg-transparent flex-1"
-            placeholder="記事のタイトルを入力..."
-          />
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-          >
-            <option value="テクノロジー">テクノロジー</option>
-            <option value="コーヒー">コーヒー</option>
-            <option value="栄養・健康">栄養・健康</option>
-            <option value="雑記">雑記</option>
-            <option value="ライフスタイル">ライフスタイル</option>
-          </select>
+        <div className="flex gap-4 items-start">
+          <div className="flex-1">
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="text-xl font-bold border-none p-0 h-auto focus:ring-0 bg-transparent w-full"
+              placeholder="記事のタイトルを入力..."
+            />
+            <div className="flex gap-4 items-center mt-2">
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+              >
+                <option value="テクノロジー">テクノロジー</option>
+                <option value="コーヒー">コーヒー</option>
+                <option value="栄養・健康">栄養・健康</option>
+                <option value="雑記">雑記</option>
+                <option value="ライフスタイル">ライフスタイル</option>
+              </select>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowThumbnailUpload(!showThumbnailUpload)}
+                className="gap-2"
+              >
+                <ImageIcon className="h-4 w-4" />
+                サムネイル画像
+              </Button>
+            </div>
+          </div>
+          
+          {/* サムネイル画像プレビュー */}
+          {thumbnailUrl && (
+            <div className="w-32 h-24">
+              <ThumbnailPreview
+                imageUrl={thumbnailUrl}
+                onRemove={handleThumbnailRemove}
+                className="w-full h-full"
+              />
+            </div>
+          )}
         </div>
+
+        {/* サムネイル画像アップロード */}
+        {showThumbnailUpload && (
+          <div className="mt-4">
+            <ImageUpload
+              onImageUploaded={handleThumbnailUpload}
+              uploading={imageUploading}
+              error={imageError}
+              variant="thumbnail"
+              placeholder="サムネイル画像をアップロード"
+              className="max-w-md"
+            />
+          </div>
+        )}
       </div>
 
       {/* Editor Content */}
@@ -252,14 +410,19 @@ console.log(greeting);
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex-shrink-0">
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-gray-900 dark:text-gray-100">Markdown</h3>
-              <Button variant="ghost" size="sm" className="gap-2">
-                <Upload className="h-4 w-4" />
-                画像アップロード
-              </Button>
+              <ImageUpload
+                onImageUploaded={handleContentImageUpload}
+                uploading={imageUploading}
+                error={imageError}
+                variant="content"
+                placeholder="本文画像をアップロード"
+                className="inline-block"
+              />
             </div>
           </div>
           <div className="flex-1 p-4">
             <Textarea
+              ref={textareaRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               className="w-full h-full font-mono text-sm border-none p-0 resize-none focus:ring-0 bg-transparent"

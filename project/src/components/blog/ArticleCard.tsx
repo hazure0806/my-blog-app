@@ -45,6 +45,9 @@ export function ArticleCard({
             className={`w-full object-cover ${
               featured ? 'h-64 md:h-80' : 'h-48'
             }`}
+            loading={featured ? "eager" : "lazy"}
+            decoding="async"
+            fetchPriority={featured ? "high" : "low"}
           />
           {isPaid && (
             <div className="absolute top-3 right-3 bg-amber-500 text-white p-2 rounded-lg shadow-sm">

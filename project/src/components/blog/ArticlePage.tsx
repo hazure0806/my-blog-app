@@ -1,145 +1,117 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Tag, ArrowLeft } from 'lucide-react';
 import { AuthorBio } from './AuthorBio';
 import { ShareButtons } from './ShareButtons';
 import { TableOfContents } from './TableOfContents';
 import { ArticleCard } from './ArticleCard';
 import { Button } from '../ui/button';
+import { getArticle, getAuthor, incrementArticleViews } from '../../lib/firestore';
+import { updateSEO, generateArticleSEO, generateStructuredData, insertStructuredData } from '../../utils/seo';
+import { InArticleAd, SidebarAd } from '../ads/AdSense';
+import { shouldDisplayAd, shouldShowInArticleAd } from '../../utils/adConfig';
+import type { Article, Author } from '../../types/firebase';
 
-const article = {
-  title: 'React 19の新機能：Server Componentsとその活用方法',
-  date: '2025年1月15日',
-  readTime: '8分',
-  category: 'React',
-  tags: ['React', 'Server Components', 'フロントエンド', 'JavaScript'],
-  content: `この記事では、React 19で導入された革新的なServer Componentsについて詳しく解説していきます。
 
-## Server Componentsとは？
-
-Server Componentsは、サーバー側でレンダリングされるReactコンポーネントで、従来のClient Componentsとは異なる動作をします。
-
-### 主な特徴
-
-- **ゼロバンドル**: Server Componentsはクライアントにバンドルされません
-- **データベースアクセス**: 直接データベースやファイルシステムにアクセス可能
-- **セキュリティ**: APIキーなどの機密情報を安全に扱えます
-
-## 実装方法
-
-基本的なServer Componentの実装例を見てみましょう：
-
-\`\`\`tsx
-// app/posts/page.tsx (Server Component)
-import { db } from '@/lib/db'
-
-export default async function PostsPage() {
-  const posts = await db.post.findMany({
-    orderBy: { createdAt: 'desc' }
-  })
-
-  return (
-    <div>
-      <h1>記事一覧</h1>
-      {posts.map(post => (
-        <article key={post.id}>
-          <h2>{post.title}</h2>
-          <p>{post.excerpt}</p>
-        </article>
-      ))}
-    </div>
-  )
+interface ArticlePageProps {
+  articleId: string | null;
+  onBack: () => void;
+  isAdmin?: boolean;
 }
-\`\`\`
 
-### Client Componentsとの使い分け
+export function ArticlePage({ articleId, onBack, isAdmin = false }: ArticlePageProps) {
+  const [article, setArticle] = useState<Article | null>(null);
+  const [author, setAuthor] = useState<Author | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-Server Componentsを使う場面：
-- データフェッチが必要な場合
-- SEOが重要な静的コンテンツ
-- 機密情報を扱う場合
+  useEffect(() => {
+    const fetchArticleData = async () => {
+      if (!articleId) {
+        setError('記事IDが指定されていません');
+        setLoading(false);
+        return;
+      }
 
-Client Componentsを使う場面：
-- ユーザーインタラクションが必要
-- ブラウザAPIを使用する場合
-- 状態管理が必要な場合
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const [articleData, authorData] = await Promise.all([
+          getArticle(articleId),
+          getAuthor()
+        ]);
 
-## パフォーマンスへの影響
+        if (!articleData) {
+          setError('記事が見つかりません');
+          return;
+        }
 
-Server Componentsを適切に使用することで、以下の改善が期待できます：
+        setArticle(articleData);
+        setAuthor(authorData);
+        
+        // SEOメタタグを更新
+        updateSEO(generateArticleSEO(articleData));
+        
+        // 構造化データを挿入
+        const structuredData = generateStructuredData('article', articleData);
+        insertStructuredData(structuredData);
+        
+        // 閲覧数をカウントアップ（エラーが発生しても記事表示は継続）
+        try {
+          await incrementArticleViews(articleId);
+          console.log('Article views updated successfully');
+        } catch (viewError) {
+          console.warn('Failed to increment views:', viewError);
+          // 閲覧数の更新に失敗しても記事表示は継続
+        }
+      } catch (err) {
+        console.error('Error fetching article:', err);
+        setError('記事の取得に失敗しました');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-1. **初期ロード時間の短縮**: クライアントでのJavaScript実行が減る
-2. **バンドルサイズの削減**: サーバーコンポーネントはバンドルされない
-3. **Core Web Vitalsの向上**: FCP、LCPなどの指標が改善される
+    fetchArticleData();
+  }, [articleId]);
 
-> **注意点**: Server ComponentsとClient Componentsの境界を適切に設計することが重要です。
+  // ローディング状態
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">記事を読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
 
-## 実践的な使用例
-
-実際のアプリケーションでServer Componentsを活用する例：
-
-\`\`\`tsx
-// app/dashboard/page.tsx
-import { UserStats } from '@/components/UserStats'
-import { RecentActivity } from '@/components/RecentActivity'
-import { getCurrentUser } from '@/lib/auth'
-
-export default async function DashboardPage() {
-  const user = await getCurrentUser()
-  
-  return (
-    <main>
-      <h1>ダッシュボード</h1>
-      <UserStats userId={user.id} />
-      <RecentActivity userId={user.id} />
-    </main>
-  )
-}
-\`\`\`
-
-## まとめ
-
-Server Componentsは、Reactアプリケーションのパフォーマンスとユーザーエクスペリエンスを大幅に改善する可能性を秘めています。適切に活用することで、より高速で効率的なWebアプリケーションを構築できるでしょう。
-
-次回の記事では、Server ComponentsとSuspenseを組み合わせた高度なデータローディングパターンについて解説予定です。`,
-  image: 'https://images.pexels.com/photos/11035380/pexels-photo-11035380.jpeg?auto=compress&cs=tinysrgb&w=1200',
-};
-
-const authorInfo = {
-  name: '田中太郎',
-  bio: 'フルスタック開発者として10年以上の経験を持ち、React、TypeScript、Node.jsを中心としたモダンWeb開発に情熱を注いでいます。最新のテクノロジートレンドを追いかけながら、実践的な知識を共有することを目標としています。',
-  avatar: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=200',
-  social: {
-    twitter: 'https://twitter.com',
-    github: 'https://github.com',
-    linkedin: 'https://linkedin.com',
-    email: 'contact@example.com',
-  },
-};
-
-const relatedArticles = [
-  {
-    title: 'Next.js App Routerによるモダンなフルスタック開発',
-    excerpt: 'Next.js 13で導入されたApp Routerを使った最新の開発手法と、パフォーマンス最適化のベストプラクティス。',
-    image: 'https://images.pexels.com/photos/546819/pexels-photo-546819.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月10日',
-    readTime: '15分',
-    category: 'Next.js',
-  },
-  {
-    title: 'TypeScriptの型システムを活用した保守性の高いコード設計',
-    excerpt: 'TypeScriptの高度な型機能を使って、より安全で保守性の高いアプリケーションを構築する方法について説明します。',
-    image: 'https://images.pexels.com/photos/4164418/pexels-photo-4164418.jpeg?auto=compress&cs=tinysrgb&w=600',
-    date: '2025年1月12日',
-    readTime: '12分',
-    category: 'TypeScript',
-  },
-];
-
-export function ArticlePage() {
+  // エラー状態
+  if (error || !article) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            記事が見つかりません
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mb-8">
+            {error || '指定された記事は存在しないか、削除された可能性があります。'}
+          </p>
+          <Button onClick={onBack} variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            ホームに戻る
+          </Button>
+        </div>
+      </div>
+    );
+  }
   const renderContent = (content: string) => {
-    return content
-      .split('\n\n')
-      .map((paragraph, index) => {
+    const paragraphs = content.split('\n\n');
+    const totalParagraphs = paragraphs.length;
+    
+    return paragraphs.map((paragraph, index) => {
         if (paragraph.startsWith('##')) {
           return (
             <h2 key={index} className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-12 mb-6 first:mt-0">
@@ -207,7 +179,36 @@ export function ArticlePage() {
           );
         }
         
-        return (
+        // 画像のMarkdown記法をチェック
+        if (paragraph.match(/^!\[.*?\]\(.*?\)$/)) {
+          const imageMatch = paragraph.match(/^!\[(.*?)\]\((.*?)\)$/);
+          if (imageMatch) {
+            const [, altText, imageUrl] = imageMatch;
+            return (
+              <div key={index} className="my-8">
+                <img
+                  src={imageUrl}
+                  alt={altText || '画像'}
+                  className="w-full h-auto rounded-lg shadow-lg max-w-full"
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    console.error('Image load error:', imageUrl);
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
+                />
+                {altText && altText !== '画像' && (
+                  <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2 italic">
+                    {altText}
+                  </p>
+                )}
+              </div>
+            );
+          }
+        }
+
+        const paragraphElement = (
           <p key={index} className="text-gray-700 dark:text-gray-300 leading-relaxed mb-6 text-lg">
             {paragraph.split('`').map((part, partIndex) => 
               partIndex % 2 === 0 ? (
@@ -220,7 +221,34 @@ export function ArticlePage() {
             )}
           </p>
         );
+
+        // 記事内広告の表示判定
+        const showInArticleAd = shouldShowInArticleAd(index, totalParagraphs) && 
+                               shouldDisplayAd('article', isAdmin);
+
+        return (
+          <React.Fragment key={index}>
+            {paragraphElement}
+            {showInArticleAd && <InArticleAd />}
+          </React.Fragment>
+        );
       });
+  };
+
+  // 日付のフォーマット
+  const formatDate = (date: Date | undefined) => {
+    if (!date) return '';
+    return new Intl.DateTimeFormat('ja-JP', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    }).format(date);
+  };
+
+  // 読了時間のフォーマット
+  const formatReadTime = (minutes: number | undefined) => {
+    if (!minutes) return '';
+    return `${minutes}分`;
   };
 
   return (
@@ -228,14 +256,17 @@ export function ArticlePage() {
       {/* Header Image */}
       <div className="relative h-96 md:h-[500px] overflow-hidden">
         <img
-          src={article.image}
+          src={article.imageUrl || 'https://images.pexels.com/photos/302899/pexels-photo-302899.jpeg?auto=compress&cs=tinysrgb&w=1200'}
           alt={article.title}
           className="w-full h-full object-cover"
+          loading="eager"
+          decoding="sync"
+          fetchPriority="high"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
         <div className="absolute bottom-8 left-0 right-0">
           <div className="mx-auto max-w-4xl px-4">
-            <Button variant="ghost" className="text-white/90 hover:text-white mb-4">
+            <Button variant="ghost" className="text-white/90 hover:text-white mb-4" onClick={onBack}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               記事一覧に戻る
             </Button>
@@ -256,7 +287,7 @@ export function ArticlePage() {
             <header className="mb-12">
               <div className="mb-6">
                 <span className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-medium">
-                  {article.category}
+                  {article.category || '未分類'}
                 </span>
               </div>
               
@@ -267,25 +298,27 @@ export function ArticlePage() {
               <div className="flex flex-wrap items-center gap-6 text-gray-600 dark:text-gray-300 mb-6">
                 <div className="flex items-center space-x-2">
                   <Calendar className="h-5 w-5" />
-                  <span>{article.date}</span>
+                  <span>{formatDate(article.publishedAt)}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Clock className="h-5 w-5" />
-                  <span>{article.readTime}</span>
+                  <span>{formatReadTime(article.readTime)}</span>
                 </div>
               </div>
               
-              <div className="flex flex-wrap gap-2">
-                {article.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-sm"
-                  >
-                    <Tag className="h-3 w-3" />
-                    {tag}
-                  </span>
-                ))}
-              </div>
+              {article.tags && article.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {article.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-sm"
+                    >
+                      <Tag className="h-3 w-3" />
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
             </header>
 
             {/* Article Content */}
@@ -294,19 +327,28 @@ export function ArticlePage() {
             </div>
 
             {/* Author Bio */}
-            <div className="mt-16 pt-12 border-t border-gray-200 dark:border-gray-700">
-              <AuthorBio {...authorInfo} />
-            </div>
+            {author && (
+              <div className="mt-16 pt-12 border-t border-gray-200 dark:border-gray-700">
+                <AuthorBio {...author} />
+              </div>
+            )}
           </article>
 
           {/* Sidebar */}
           <aside className="space-y-8">
-            <ShareButtons url="https://example.com" title={article.title} />
+            <ShareButtons url={window.location.href} title={article.title} />
+            
+            {/* サイドバー広告 */}
+            {shouldDisplayAd('article', isAdmin) && (
+              <div className="sticky top-24">
+                <SidebarAd />
+              </div>
+            )}
           </aside>
         </div>
 
-        {/* Related Articles */}
-        <section className="mt-20 pt-12 border-t border-gray-200 dark:border-gray-700">
+        {/* Related Articles - 現在は関連記事機能は未実装のためコメントアウト */}
+        {/* <section className="mt-20 pt-12 border-t border-gray-200 dark:border-gray-700">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8">
             関連記事
           </h2>
@@ -315,7 +357,7 @@ export function ArticlePage() {
               <ArticleCard key={index} {...article} />
             ))}
           </div>
-        </section>
+        </section> */}
       </div>
     </main>
   );

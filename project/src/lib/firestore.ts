@@ -10,7 +10,8 @@ import {
   orderBy, 
   where, 
   limit,
-  Timestamp 
+  Timestamp,
+  increment 
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Article, Author, Comment } from '../types/firebase';
@@ -50,8 +51,14 @@ export const getArticle = async (id: string) => {
 
 export const createArticle = async (article: Omit<Article, 'id' | 'publishedAt' | 'updatedAt' | 'views'>) => {
   const now = new Date();
+  
+  // undefined値を除外してFirestoreに保存
+  const cleanArticle = Object.fromEntries(
+    Object.entries(article).filter(([_, value]) => value !== undefined)
+  );
+  
   const articleData = {
-    ...article,
+    ...cleanArticle,
     publishedAt: Timestamp.fromDate(now),
     updatedAt: Timestamp.fromDate(now),
     views: 0,
@@ -63,8 +70,14 @@ export const createArticle = async (article: Omit<Article, 'id' | 'publishedAt' 
 
 export const updateArticle = async (id: string, updates: Partial<Article>) => {
   const docRef = doc(articlesCollection, id);
+  
+  // undefined値を除外してFirestoreに保存
+  const cleanUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([_, value]) => value !== undefined)
+  );
+  
   const updateData = {
-    ...updates,
+    ...cleanUpdates,
     updatedAt: Timestamp.fromDate(new Date()),
   };
   
@@ -74,6 +87,20 @@ export const updateArticle = async (id: string, updates: Partial<Article>) => {
 export const deleteArticle = async (id: string) => {
   const docRef = doc(articlesCollection, id);
   await deleteDoc(docRef);
+};
+
+// 閲覧数を増加させる関数
+export const incrementArticleViews = async (id: string) => {
+  try {
+    const docRef = doc(articlesCollection, id);
+    await updateDoc(docRef, {
+      views: increment(1)
+    });
+    console.log('Views incremented successfully for article:', id);
+  } catch (error) {
+    console.error('Failed to increment views for article:', id, error);
+    throw error;
+  }
 };
 
 // 著者情報の取得

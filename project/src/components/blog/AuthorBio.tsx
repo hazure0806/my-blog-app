@@ -1,5 +1,5 @@
-import React from 'react';
-import { Twitter, Github, Linkedin, Mail } from 'lucide-react';
+import { FaGithub, FaLinkedin } from 'react-icons/fa';
+import { FaSquareXTwitter } from "react-icons/fa6";
 
 interface AuthorBioProps {
   name: string;
@@ -11,9 +11,11 @@ interface AuthorBioProps {
     linkedin?: string;
     email?: string;
   };
+  onNavigateToAbout?: () => void;
+  showDetailButton?: boolean;
 }
 
-export function AuthorBio({ name, bio, avatar, social }: AuthorBioProps) {
+export function AuthorBio({ name, bio, avatar, social, onNavigateToAbout, showDetailButton = true }: AuthorBioProps) {
   return (
     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-xl p-6 md:p-8 border border-blue-200 dark:border-gray-600">
       <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
@@ -31,38 +33,41 @@ export function AuthorBio({ name, bio, avatar, social }: AuthorBioProps) {
             {bio}
           </p>
           
-          <div className="flex items-center space-x-4">
-            {social.twitter && (
-              <a
-                href={social.twitter}
-                className="p-2 text-gray-600 hover:text-blue-500 dark:text-gray-300 dark:hover:text-blue-400 transition-colors bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md"
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              {social.twitter && (
+                <a
+                  href={social.twitter}
+                  className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md"
+                >
+                  <FaSquareXTwitter className="h-5 w-5" />
+                </a>
+              )}
+              {social.github && (
+                <a
+                  href={social.github}
+                  className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md"
+                >
+                  <FaGithub className="h-5 w-5" />
+                </a>
+              )}
+              {social.linkedin && (
+                <a
+                  href={social.linkedin}
+                  className="p-2 text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md"
+                >
+                  <FaLinkedin className="h-5 w-5" />
+                </a>
+              )}
+            </div>
+            
+            {onNavigateToAbout && showDetailButton && (
+              <button
+                onClick={onNavigateToAbout}
+                className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors font-medium"
               >
-                <Twitter className="h-5 w-5" />
-              </a>
-            )}
-            {social.github && (
-              <a
-                href={social.github}
-                className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md"
-              >
-                <Github className="h-5 w-5" />
-              </a>
-            )}
-            {social.linkedin && (
-              <a
-                href={social.linkedin}
-                className="p-2 text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md"
-              >
-                <Linkedin className="h-5 w-5" />
-              </a>
-            )}
-            {social.email && (
-              <a
-                href={`mailto:${social.email}`}
-                className="p-2 text-gray-600 hover:text-orange-600 dark:text-gray-300 dark:hover:text-orange-400 transition-colors bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md"
-              >
-                <Mail className="h-5 w-5" />
-              </a>
+                詳細を見る →
+              </button>
             )}
           </div>
         </div>

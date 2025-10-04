@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getArticles, getArticle, createArticle, updateArticle, deleteArticle } from '../lib/firestore';
 import type { Article } from '../types/firebase';
 
@@ -21,7 +21,7 @@ export function useArticles() {
     }
   };
 
-  const fetchArticle = async (id: string) => {
+  const fetchArticle = useCallback(async (id: string) => {
     try {
       setError(null);
       const article = await getArticle(id);
@@ -31,7 +31,7 @@ export function useArticles() {
       console.error('Error fetching article:', err);
       return null;
     }
-  };
+  }, []);
 
   const addArticle = async (articleData: Omit<Article, 'id' | 'publishedAt' | 'updatedAt' | 'views'>) => {
     try {

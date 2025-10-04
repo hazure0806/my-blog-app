@@ -12,65 +12,68 @@ import {
   MessageSquare,
   Moon,
   Sun,
-  LogOut
+  LogOut,
+  Loader2
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { useTheme } from '../../hooks/useTheme';
 import { useAuth } from '../../hooks/useAuth';
+import { useDashboardStats } from '../../hooks/useDashboardStats';
 
 interface DashboardProps {
   onNavigateToEditor: () => void;
   onNavigateToArticlesList?: () => void;
   onLogout?: () => void;
+  onNavigateToEditArticle?: (articleId: string) => void;
+  onNavigateToDraftManagement?: () => void;
 }
 
-export function Dashboard({ onNavigateToEditor, onNavigateToArticlesList, onLogout }: DashboardProps) {
+export function Dashboard({ onNavigateToEditor, onNavigateToArticlesList, onLogout, onNavigateToEditArticle, onNavigateToDraftManagement }: DashboardProps) {
   const { isDark, toggleTheme } = useTheme();
   const { logout } = useAuth();
+  const { stats, loading, error } = useDashboardStats();
 
-  const stats = {
-    totalViews: 12543,
-    monthlyViews: 3421,
-    totalArticles: 28,
-    publishedArticles: 25,
-    draftArticles: 3,
-    totalComments: 156,
-    monthlyGrowth: 15.3,
-    avgReadTime: '5分30秒'
-  };
+  // ローディング状態の表示
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600 dark:text-blue-400" />
+          <p className="text-gray-600 dark:text-gray-300">統計データを読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const recentArticles = [
-    {
-      title: '毎日のコーヒータイムを特別にする5つの方法',
-      views: 1456,
-      comments: 23,
-      publishedAt: '2025年1月20日',
-      status: 'published'
-    },
-    {
-      title: '栄養バランスを考えた一週間の食事プラン',
-      views: 1123,
-      comments: 15,
-      publishedAt: '2025年1月18日',
-      status: 'published'
-    },
-    {
-      title: '週末の小さな冒険：近所のカフェ巡り記録',
-      views: 0,
-      comments: 0,
-      publishedAt: '',
-      status: 'draft'
-    }
-  ];
+  // エラー状態の表示
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 dark:text-red-400 mb-4">
+            <FileText className="h-8 w-8 mx-auto mb-2" />
+            <p className="text-lg font-medium">エラーが発生しました</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">{error}</p>
+          </div>
+          <Button onClick={() => window.location.reload()}>
+            再読み込み
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
-  const topArticles = [
-    { title: '毎日のコーヒータイムを特別にする5つの方法', views: 1456 },
-    { title: '栄養バランスを考えた一週間の食事プラン', views: 1123 },
-    { title: 'React 19の新機能：Server Componentsとその活用方法', views: 892 },
-    { title: '在宅ワークの生産性を上げる環境づくり', views: 743 },
-    { title: 'TypeScriptの型システムを活用した保守性の高いコード設計', views: 621 }
-  ];
+  // データが取得できない場合のフォールバック
+  if (!stats) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600 dark:text-gray-300">データを取得できませんでした</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -159,16 +162,16 @@ export function Dashboard({ onNavigateToEditor, onNavigateToArticlesList, onLogo
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">
-                コメント数
+                下書き記事数
               </CardTitle>
-              <MessageSquare className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                {stats.totalComments}
+                {stats.draftArticles}
               </div>
               <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
-                今月の成長率: +{stats.monthlyGrowth}%
+                公開待ちの記事
               </p>
             </CardContent>
           </Card>
@@ -185,7 +188,7 @@ export function Dashboard({ onNavigateToEditor, onNavigateToArticlesList, onLogo
                 {stats.avgReadTime}
               </div>
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                +12% 先月比
+                公開済み記事の平均
               </p>
             </CardContent>
           </Card>
@@ -202,8 +205,8 @@ export function Dashboard({ onNavigateToEditor, onNavigateToArticlesList, onLogo
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recentArticles.map((article, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                {stats.recentArticles.map((article, index) => (
+                  <div key={article.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <div className="flex-1">
                       <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-1 line-clamp-1">
                         {article.title}
@@ -212,10 +215,6 @@ export function Dashboard({ onNavigateToEditor, onNavigateToArticlesList, onLogo
                         <span className="flex items-center gap-1">
                           <Eye className="h-3 w-3" />
                           {article.views}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MessageSquare className="h-3 w-3" />
-                          {article.comments}
                         </span>
                         {article.publishedAt && (
                           <span className="flex items-center gap-1">
@@ -233,7 +232,11 @@ export function Dashboard({ onNavigateToEditor, onNavigateToArticlesList, onLogo
                       }`}>
                         {article.status === 'published' ? '公開済み' : '下書き'}
                       </span>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => onNavigateToEditArticle?.(article.id)}
+                      >
                         <Edit3 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -262,8 +265,8 @@ export function Dashboard({ onNavigateToEditor, onNavigateToArticlesList, onLogo
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {topArticles.map((article, index) => (
-                  <div key={index} className="flex items-center space-x-4">
+                {stats.topArticles.map((article, index) => (
+                  <div key={article.id} className="flex items-center space-x-4">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                       index === 0 
                         ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
@@ -301,7 +304,7 @@ export function Dashboard({ onNavigateToEditor, onNavigateToArticlesList, onLogo
                 <Plus className="h-6 w-6" />
                 新しい記事を作成
               </Button>
-              <Button variant="outline" className="h-20 flex-col gap-2">
+              <Button variant="outline" className="h-20 flex-col gap-2" onClick={onNavigateToDraftManagement}>
                 <FileText className="h-6 w-6" />
                 下書きを管理
               </Button>
