@@ -1,5 +1,6 @@
 import React from 'react';
-import { Twitter, Facebook, Linkedin, Link2 } from 'lucide-react';
+import { Facebook, Linkedin, Link2 } from 'lucide-react';
+import { FaSquareXTwitter } from "react-icons/fa6";
 
 interface ShareButtonsProps {
   url: string;
@@ -34,7 +35,7 @@ export function ShareButtons({ url, title }: ShareButtonsProps) {
           rel="noopener noreferrer"
           className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 transition-colors bg-gray-50 dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md"
         >
-          <Twitter className="h-5 w-5" />
+          <FaSquareXTwitter className="h-5 w-5" />
         </a>
         <a
           href={shareData.facebook}
