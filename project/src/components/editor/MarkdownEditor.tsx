@@ -1,12 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Eye, EyeOff, Save, Upload, Send, Image as ImageIcon } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Eye, EyeOff, Save, Send, Image as ImageIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { ImageUpload, ThumbnailPreview } from '../ui/image-upload';
 import { useArticles } from '../../hooks/useArticles';
 import { useImageUpload } from '../../hooks/useImageUpload';
-import type { Article } from '../../types/firebase';
+import { generateImagePath, uploadImage } from '../../lib/storage';
 
 interface MarkdownEditorProps {
   onBackToDashboard?: () => void;
@@ -53,7 +53,6 @@ console.log(greeting);
 - 継続的なスキルアップの重要性`);
   
   const [category, setCategory] = useState('テクノロジー');
-  const [status, setStatus] = useState<'draft' | 'published'>('draft');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string>('');
@@ -61,7 +60,7 @@ console.log(greeting);
   const [loading, setLoading] = useState(false);
   
   const { addArticle, editArticle, fetchArticle } = useArticles();
-  const { uploadImageToStorage, uploading: imageUploading, error: imageError } = useImageUpload();
+  const { uploading: imageUploading, error: imageError } = useImageUpload();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // 編集モード用のデータ読み込み
@@ -78,7 +77,6 @@ console.log(greeting);
           setTitle(article.title);
           setContent(article.content);
           setCategory(article.category);
-          setStatus(article.status);
           if (article.imageUrl) {
             setThumbnailUrl(article.imageUrl);
           }
@@ -129,7 +127,7 @@ console.log(greeting);
   const handleContentImageUpload = async (file: File) => {
     try {
       const fileName = generateImagePath(file.name);
-      const downloadURL = await uploadImageToStorage(file, `content/${fileName}`);
+      const downloadURL = await uploadImage(file, `content/${fileName}`);
       
       // 現在のカーソル位置にMarkdown記法を挿入
       if (textareaRef.current) {
@@ -161,7 +159,7 @@ console.log(greeting);
   const handleThumbnailUpload = async (file: File) => {
     try {
       const fileName = generateImagePath(file.name);
-      const downloadURL = await uploadImageToStorage(file, `thumbnail/${fileName}`);
+      const downloadURL = await uploadImage(file, `thumbnail/${fileName}`);
       setThumbnailUrl(downloadURL);
       setShowThumbnailUpload(false);
     } catch (err) {
@@ -268,7 +266,7 @@ console.log(greeting);
       .replace(/^# (.*$)/gm, '<h1 class="text-3xl font-bold mb-4 text-gray-900 dark:text-gray-100">$1</h1>')
       .replace(/^## (.*$)/gm, '<h2 class="text-2xl font-semibold mb-3 mt-8 text-gray-900 dark:text-gray-100">$1</h2>')
       .replace(/^### (.*$)/gm, '<h3 class="text-xl font-medium mb-2 mt-6 text-gray-900 dark:text-gray-100">$1</h3>')
-      .replace(/^\> (.*$)/gm, '<blockquote class="border-l-4 border-emerald-500 pl-4 py-2 my-4 bg-emerald-50 dark:bg-emerald-900/20 text-gray-700 dark:text-gray-300">$1</blockquote>')
+      .replace(/^> (.*$)/gm, '<blockquote class="border-l-4 border-emerald-500 pl-4 py-2 my-4 bg-emerald-50 dark:bg-emerald-900/20 text-gray-700 dark:text-gray-300">$1</blockquote>')
       .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">$1</strong>')
       .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
       .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-emerald-600 dark:text-emerald-400">$1</code>')
