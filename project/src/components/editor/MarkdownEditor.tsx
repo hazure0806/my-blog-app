@@ -273,66 +273,97 @@ console.log(greeting);
   const renderMarkdownPreview = (content: string) => {
     // より簡潔で確実なマークダウン変換
     const lines = content.split('\n');
+    const elements: JSX.Element[] = [];
+    let i = 0;
     
-    return lines.map((line, index) => {
+    while (i < lines.length) {
+      const line = lines[i];
+      
       // 見出し1
       if (line.startsWith('# ')) {
         const text = line.replace('# ', '');
         const id = generateId(text);
-        return (
-          <h1 key={index} id={id} className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-6 mb-4 first:mt-0 leading-tight">
+        elements.push(
+          <h1 key={i} id={id} className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-6 mb-4 first:mt-0 leading-tight">
             {text}
           </h1>
         );
+        i++;
+        continue;
       }
       
       // 見出し2
       if (line.startsWith('## ')) {
         const text = line.replace('## ', '');
         const id = generateId(text);
-        return (
-          <h2 key={index} id={id} className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-5 mb-3 leading-tight">
+        elements.push(
+          <h2 key={i} id={id} className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-5 mb-3 leading-tight">
             {text}
           </h2>
         );
+        i++;
+        continue;
       }
       
       // 見出し3
       if (line.startsWith('### ')) {
         const text = line.replace('### ', '');
         const id = generateId(text);
-        return (
-          <h3 key={index} id={id} className="text-xl font-semibold text-gray-900 dark:text-gray-100 mt-4 mb-2 leading-tight">
+        elements.push(
+          <h3 key={i} id={id} className="text-xl font-semibold text-gray-900 dark:text-gray-100 mt-4 mb-2 leading-tight">
             {text}
           </h3>
         );
+        i++;
+        continue;
       }
       
       // コードブロック
       if (line.startsWith('```')) {
         const codeBlock = [];
-        let i = index + 1;
-        while (i < lines.length && !lines[i].startsWith('```')) {
-          codeBlock.push(lines[i]);
-          i++;
+        let j = i + 1;
+        while (j < lines.length && !lines[j].startsWith('```')) {
+          codeBlock.push(lines[j]);
+          j++;
         }
         
-        return (
-          <pre key={index} className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-3 border border-gray-200 dark:border-gray-700">
-            <code className="text-sm font-mono leading-tight">{codeBlock.join('\n')}</code>
+        // 空のコードブロックの場合は適切な表示を行う
+        const codeContent = codeBlock.join('\n');
+        const isEmpty = codeContent.trim() === '';
+        
+        elements.push(
+          <pre key={i} className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-3 border border-gray-200 dark:border-gray-700">
+            <code className="text-sm font-mono leading-tight">
+              {isEmpty ? (
+                <span className="text-gray-400 italic">（空のコードブロック）</span>
+              ) : (
+                codeContent
+              )}
+            </code>
           </pre>
         );
+        
+        // コードブロックの終了までスキップ
+        i = j + 1;
+        continue;
       }
       
       // 引用
       if (line.startsWith('> ')) {
-        return (
-          <blockquote key={index} className="border-l-4 border-blue-500 pl-4 py-2 my-3 bg-blue-50 dark:bg-blue-900/20 rounded-r-lg">
-            <p className="text-gray-700 dark:text-gray-300 leading-tight font-medium">
-              {line.replace('> ', '')}
-            </p>
+        const quoteText = line.replace('> ', '');
+        const processedQuoteText = quoteText
+          .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+          .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono text-blue-600 dark:text-blue-400">$1</code>')
+          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
+        
+        elements.push(
+          <blockquote key={i} className="border-l-4 border-blue-500 pl-4 py-2 my-3 bg-blue-50 dark:bg-blue-900/20 rounded-r-lg">
+            <p className="text-gray-700 dark:text-gray-300 leading-tight font-medium" dangerouslySetInnerHTML={{ __html: processedQuoteText }} />
           </blockquote>
         );
+        i++;
+        continue;
       }
       
       // リスト項目
@@ -341,15 +372,17 @@ console.log(greeting);
         const processedListText = listText
           .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">$1</strong>')
           .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-          .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-blue-600 dark:text-blue-400">$1</code>')
+          .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono text-blue-600 dark:text-blue-400">$1</code>')
           .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
         
-        return (
-          <div key={index} className="flex items-center text-gray-700 dark:text-gray-300 leading-tight my-1 text-lg">
+        elements.push(
+          <div key={i} className="flex items-center text-gray-700 dark:text-gray-300 leading-tight my-1 text-lg">
             <span className="text-blue-600 dark:text-blue-400 mr-3 text-lg">•</span>
             <span className="flex-1" dangerouslySetInnerHTML={{ __html: processedListText }} />
           </div>
         );
+        i++;
+        continue;
       }
       
       // 番号付きリスト
@@ -360,11 +393,11 @@ console.log(greeting);
           const processedListText = text
             .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">$1</strong>')
             .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-            .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-blue-600 dark:text-blue-400">$1</code>')
+            .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono text-blue-600 dark:text-blue-400">$1</code>')
             .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
           
-          return (
-            <div key={index} className="flex items-center text-gray-700 dark:text-gray-300 leading-tight my-1 text-lg">
+          elements.push(
+            <div key={i} className="flex items-center text-gray-700 dark:text-gray-300 leading-tight my-1 text-lg">
               <span className="text-blue-600 dark:text-blue-400 mr-2 font-medium min-w-[1.5rem]">
                 {num}.
               </span>
@@ -372,6 +405,8 @@ console.log(greeting);
             </div>
           );
         }
+        i++;
+        continue;
       }
       
       // 画像
@@ -379,8 +414,8 @@ console.log(greeting);
         const match = line.match(/^!\[(.*?)\]\((.*?)\)$/);
         if (match) {
           const [, altText, imageUrl] = match;
-          return (
-            <div key={index} className="my-4">
+          elements.push(
+            <div key={i} className="my-4">
               <img
                 src={imageUrl}
                 alt={altText || '画像'}
@@ -401,11 +436,15 @@ console.log(greeting);
             </div>
           );
         }
+        i++;
+        continue;
       }
       
       // 空行
       if (line.trim() === '') {
-        return <br key={index} />;
+        elements.push(<br key={i} />);
+        i++;
+        continue;
       }
       
       // 通常の段落
@@ -415,14 +454,17 @@ console.log(greeting);
         .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-blue-600 dark:text-blue-400">$1</code>')
         .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
       
-      return (
+      elements.push(
         <p 
-          key={index} 
+          key={i} 
           className="text-gray-700 dark:text-gray-300 leading-tight mb-2 text-lg"
           dangerouslySetInnerHTML={{ __html: processedLine }}
         />
       );
-    });
+      i++;
+    }
+    
+    return elements;
   };
 
   // ローディング状態の表示
