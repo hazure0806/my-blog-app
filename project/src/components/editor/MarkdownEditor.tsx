@@ -414,25 +414,46 @@ console.log(greeting);
         const match = line.match(/^!\[(.*?)\]\((.*?)\)$/);
         if (match) {
           const [, altText, imageUrl] = match;
+          
+          // 画像サイズの判定（altTextにサイズ情報が含まれている場合）
+          let imageSizeClass = "max-w-full h-auto max-h-96 object-contain";
+          let containerClass = "my-4 flex justify-center";
+          
+          if (altText.includes('small') || altText.includes('小')) {
+            imageSizeClass = "max-w-xs h-auto object-contain";
+          } else if (altText.includes('medium') || altText.includes('中')) {
+            imageSizeClass = "max-w-md h-auto object-contain";
+          } else if (altText.includes('large') || altText.includes('大')) {
+            imageSizeClass = "max-w-2xl h-auto object-contain";
+          } else if (altText.includes('full') || altText.includes('全幅')) {
+            imageSizeClass = "w-full h-auto object-contain";
+            containerClass = "my-4";
+          }
+          
+          // altTextからサイズ指定を除去
+          const cleanAltText = altText.replace(/\b(small|medium|large|full|小|中|大|全幅)\b/gi, '').trim();
+          
           elements.push(
-            <div key={i} className="my-4">
-              <img
-                src={imageUrl}
-                alt={altText || '画像'}
-                className="w-full h-auto rounded-lg shadow-lg"
-                loading="lazy"
-                decoding="async"
-                onError={(e) => {
-                  console.error('Image load error:', imageUrl);
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                }}
-              />
-              {altText && altText !== '画像' && (
-                <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-1 italic">
-                  {altText}
-                </p>
-              )}
+            <div key={i} className={containerClass}>
+              <div className="relative max-w-full">
+                <img
+                  src={imageUrl}
+                  alt={cleanAltText || '画像'}
+                  className={`${imageSizeClass} rounded-lg shadow-lg mx-auto`}
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    console.error('Image load error:', imageUrl);
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
+                />
+                {cleanAltText && cleanAltText !== '画像' && (
+                  <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-2 italic">
+                    {cleanAltText}
+                  </p>
+                )}
+              </div>
             </div>
           );
         }
@@ -448,11 +469,19 @@ console.log(greeting);
       }
       
       // 通常の段落
-      const processedLine = line
+      let processedLine = line
         .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-900 dark:text-gray-100">$1</strong>')
         .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-        .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono text-blue-600 dark:text-blue-400">$1</code>')
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">$1</a>');
+        .replace(/`(.*?)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded font-mono text-blue-600 dark:text-blue-400">$1</code>');
+      
+      // 画像記法でないリンクのみを処理
+      processedLine = processedLine.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+        // 画像記法でない場合のみリンクとして処理
+        if (!match.startsWith('!')) {
+          return `<a href="${url}" class="text-blue-600 dark:text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer">${text}</a>`;
+        }
+        return match;
+      });
       
       elements.push(
         <p 
